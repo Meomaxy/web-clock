@@ -10,6 +10,9 @@
           ?seconds=off         hide seconds
           ?date=off            hide the date
           ?theme=red           red (default), cyan, amber, green, white
+          ?weather=off         hide the temperature
+          ?units=c             Celsius (default is Fahrenheit)
+          ?lat=40.9&lon=-74.0  weather location (default: Teaneck, NJ 07666)
         Example: http://tower:8043/?24h&seconds=off&theme=amber
     -->
     <style>
@@ -77,6 +80,22 @@
             margin-top: 2vh;
             text-transform: uppercase;
         }
+
+        /* Current temperature and condition, under the date */
+        .weather-display {
+            font-size: 3.5vw;
+            font-weight: 300;
+            letter-spacing: 0.05em;
+            margin-top: 1.5vh;
+            font-variant-numeric: tabular-nums;
+            min-height: 1.2em; /* hold the space so the clock doesn't jump when it loads */
+        }
+
+        .weather-temp {
+            color: var(--accent);
+            font-weight: 400;
+            margin-right: 0.6em;
+        }
     </style>
 </head>
 <body>
@@ -86,6 +105,7 @@
             <span id="time">--:--</span><span id="ampm" class="ampm-display"></span>
         </div>
         <div id="date" class="date-display"></div>
+        <div id="weather" class="weather-display"></div>
     </div>
 
     <script>
@@ -97,6 +117,11 @@
             showSeconds: !isOff('seconds'),
             showDate: !isOff('date'),
             theme: (params.get('theme') || 'red').toLowerCase(),
+            showWeather: !isOff('weather'),
+            // Default location: Teaneck, NJ (ZIP 07666)
+            lat: parseFloat(params.get('lat')) || 40.8976,
+            lon: parseFloat(params.get('lon')) || -74.0160,
+            celsius: (params.get('units') || '').toLowerCase().startsWith('c'),
         };
 
         const themes = {
@@ -149,6 +174,52 @@
             setTimeout(tick, 1000 - (Date.now() % 1000) + 10);
         }
 
+        // --- WEATHER ---
+        // Current conditions from Open-Meteo (free, no API key).
+        const weatherEl = document.getElementById('weather');
+        if (!settings.showWeather) weatherEl.style.display = 'none';
+
+        // WMO weather codes -> short labels
+        function describeWeather(code) {
+            if (code === 0) return 'Clear';
+            if (code === 1) return 'Mostly Clear';
+            if (code === 2) return 'Partly Cloudy';
+            if (code === 3) return 'Cloudy';
+            if (code === 45 || code === 48) return 'Fog';
+            if (code >= 51 && code <= 57) return 'Drizzle';
+            if (code >= 61 && code <= 67) return 'Rain';
+            if (code >= 71 && code <= 77) return 'Snow';
+            if (code >= 80 && code <= 82) return 'Showers';
+            if (code === 85 || code === 86) return 'Snow Showers';
+            if (code >= 95) return 'Thunderstorm';
+            return '';
+        }
+
+        let lastWeatherAt = 0;
+        async function updateWeather() {
+            const url = 'https://api.open-meteo.com/v1/forecast'
+                + `?latitude=${settings.lat}&longitude=${settings.lon}`
+                + '&current=temperature_2m,weather_code'
+                + `&temperature_unit=${settings.celsius ? 'celsius' : 'fahrenheit'}`;
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(res.status);
+                const { current } = await res.json();
+                const temp = Math.round(current.temperature_2m);
+                const unit = settings.celsius ? 'C' : 'F';
+
+                weatherEl.textContent = '';
+                const tempEl = document.createElement('span');
+                tempEl.className = 'weather-temp';
+                tempEl.textContent = `${temp}°${unit}`;
+                weatherEl.append(tempEl, describeWeather(current.weather_code));
+                lastWeatherAt = Date.now();
+            } catch (e) {
+                // Keep showing the last reading, but clear it once it's over an hour old
+                if (Date.now() - lastWeatherAt > 3600000) weatherEl.textContent = '';
+            }
+        }
+
         // --- SCREEN PROTECTOR (ANTI-BURN-IN) ---
         // Every minute, drift the clock to a new spot within a few percent of
         // the screen so no pixels show the same thing for hours.
@@ -176,6 +247,10 @@
 
         tick();
         setInterval(preventBurnIn, 60000);
+        if (settings.showWeather) {
+            updateWeather();
+            setInterval(updateWeather, 10 * 60000);   // refresh every 10 minutes
+        }
         requestWakeLock();
     </script>
 </body>

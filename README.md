@@ -19,6 +19,9 @@ Add these to the end of the URL. Combine them with `&`.
 | `?seconds=off` | Hide seconds (the time gets bigger to fill the space)        |
 | `?date=off`    | Hide the date                                                |
 | `?theme=NAME`  | Color theme: `red` (default), `cyan`, `amber`, `green`, `white` |
+| `?weather=off` | Hide the temperature                                         |
+| `?units=c`     | Show temperature in Celsius (default is Fahrenheit)          |
+| `?lat=..&lon=..` | Weather location (default is Teaneck, NJ 07666)            |
 
 Examples:
 
@@ -31,6 +34,8 @@ http://tower:8043/?24h&seconds=off&date=off&theme=white
 ### Features
 
 - Once a minute the clock slowly drifts to a nearby spot to prevent burn-in.
+- The current temperature and condition appear under the date. They come from
+  [Open-Meteo](https://open-meteo.com/) (free, no API key) and refresh every 10 minutes.
 - The mouse cursor is hidden over the page.
 - The page asks the browser to keep the screen awake. Browsers only allow this
   on HTTPS or localhost, so on a plain-HTTP server, set the TV or browser's
