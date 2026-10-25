@@ -3,48 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clock</title>
+    <title>Digital TV Clock</title>
+    <!--
+        URL settings (combine with &):
+          ?24h                 24-hour time
+          ?seconds=off         hide seconds
+          ?date=off            hide the date
+          ?theme=red           red (default), cyan, amber, green, white
+        Example: http://tower:8043/?24h&seconds=off&theme=amber
+    -->
     <style>
-        /* Eliminates scrollbars and sets a deep, low-glare background */
-        body {
-            background-color: #0b0c10;
-            color: #c5c6c7;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            width: 100vw;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-            transition: transform 0.5s ease; /* Smooth transition for anti-burn-in shifting */
+        :root {
+            --accent: #ff3b3b;
+            --accent-glow: rgba(255, 59, 59, 0.25);
+            --date: #a36a6a;
         }
 
-        /* Container that scales perfectly with the viewport width */
+        /* Eliminates scrollbars and sets a deep, low-glare background */
+        html, body {
+            background-color: #0b0c10;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            color: var(--date);
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: none;
+        }
+
         .clock-container {
             text-align: center;
             user-select: none;
+            /* Slow drift for burn-in protection */
+            transition: transform 20s ease-in-out;
         }
 
         /* Giant numerical readout */
         .time-display {
-            font-size: 16vw; 
+            font-size: 16vw;
             font-weight: 700;
             line-height: 1;
             letter-spacing: -0.03em;
-            color: #66fcf1; /* Crisp, readable cyan glow effect */
-            text-shadow: 0 0 20px rgba(102, 252, 241, 0.2);
+            /* Equal-width digits so the time doesn't wobble each second */
+            font-variant-numeric: tabular-nums;
+            color: var(--accent);
+            text-shadow: 0 0 20px var(--accent-glow);
+            white-space: nowrap;
+        }
+
+        .no-seconds .time-display {
+            font-size: 22vw;
         }
 
         /* Smaller AM/PM indicator next to the numbers */
         .ampm-display {
-            font-size: 4vw;
+            font-size: 0.25em;
             font-weight: 400;
-            margin-left: 1vw;
-            text-transform: uppercase;
-            color: #45f3ff;
+            margin-left: 0.15em;
+            letter-spacing: 0;
         }
 
         /* Secondary date line below the clock */
@@ -53,7 +75,6 @@
             font-weight: 300;
             letter-spacing: 0.05em;
             margin-top: 2vh;
-            color: #1f2833;
             text-transform: uppercase;
         }
     </style>
@@ -62,55 +83,100 @@
 
     <div class="clock-container" id="clockWrapper">
         <div class="time-display">
-            <span id="time">00:00:00</span><span id="ampm">--</span>
+            <span id="time">--:--</span><span id="ampm" class="ampm-display"></span>
         </div>
-        <div id="date" class="date-display">Loading Date...</div>
+        <div id="date" class="date-display"></div>
     </div>
 
     <script>
+        // --- SETTINGS FROM URL ---
+        const params = new URLSearchParams(location.search);
+        const isOff = (name) => ['off', 'false', '0', 'no'].includes((params.get(name) || '').toLowerCase());
+        const settings = {
+            use24h: params.has('24h') && !isOff('24h'),
+            showSeconds: !isOff('seconds'),
+            showDate: !isOff('date'),
+            theme: (params.get('theme') || 'red').toLowerCase(),
+        };
+
+        const themes = {
+            cyan:  { accent: '#66fcf1', glow: 'rgba(102, 252, 241, 0.2)', date: '#7f9aa3' },
+            red:   { accent: '#ff3b3b', glow: 'rgba(255, 59, 59, 0.25)',  date: '#a36a6a' },
+            amber: { accent: '#ffb000', glow: 'rgba(255, 176, 0, 0.2)',   date: '#a38a5a' },
+            green: { accent: '#39ff6a', glow: 'rgba(57, 255, 106, 0.2)',  date: '#6fa37f' },
+            white: { accent: '#f2f2f2', glow: 'rgba(242, 242, 242, 0.15)', date: '#9a9a9a' },
+        };
+        const theme = themes[settings.theme] || themes.red;
+        const rootStyle = document.documentElement.style;
+        rootStyle.setProperty('--accent', theme.accent);
+        rootStyle.setProperty('--accent-glow', theme.glow);
+        rootStyle.setProperty('--date', theme.date);
+
+        if (!settings.showSeconds) document.body.classList.add('no-seconds');
+
+        const timeEl = document.getElementById('time');
+        const ampmEl = document.getElementById('ampm');
+        const dateEl = document.getElementById('date');
+        if (!settings.showDate) dateEl.style.display = 'none';
+
+        // --- CLOCK ---
         function updateClock() {
             const now = new Date();
-            
-            // --- TIME SECTOR ---
             let hours = now.getHours();
-            let minutes = now.getMinutes();
-            let seconds = now.getSeconds();
-            
-            // Determine AM/PM marker
-            const ampm = hours >= 12 ? 'PM' : 'AM';
-            
-            // Convert to standard 12-hour format (Change to standard hours if 24h preferred)
-            hours = hours % 12;
-            hours = hours ? hours : 12; // The hour '0' should be '12'
-            
-            // Padding strings to always preserve 2-digit format
-            hours = String(hours).padStart(2, '0');
-            minutes = String(minutes).padStart(2, '0');
-            seconds = String(seconds).padStart(2, '0');
-            
-            document.getElementById('time').textContent = `${hours}:${minutes}:${seconds}`;
-            document.getElementById('ampm').textContent = ampm;
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
 
-            // --- DATE SECTOR ---
-            const options = { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' };
-            document.getElementById('date').textContent = now.toLocaleDateString('en-US', options);
+            if (settings.use24h) {
+                hours = String(hours).padStart(2, '0');
+                ampmEl.textContent = '';
+            } else {
+                ampmEl.textContent = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12 || 12;
+            }
+
+            timeEl.textContent = settings.showSeconds
+                ? `${hours}:${minutes}:${seconds}`
+                : `${hours}:${minutes}`;
+
+            dateEl.textContent = now.toLocaleDateString('en-US',
+                { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        // Schedule each update just after the next second starts, so the
+        // display changes in step with the real clock instead of drifting.
+        function tick() {
+            updateClock();
+            setTimeout(tick, 1000 - (Date.now() % 1000) + 10);
         }
 
         // --- SCREEN PROTECTOR (ANTI-BURN-IN) ---
-        // Gently shifts the layout coordinate slightly every 5 minutes 
-        // to prevent ghosting or static display pixel burn-in.
+        // Every minute, drift the clock to a new spot within a few percent of
+        // the screen so no pixels show the same thing for hours.
+        const wrapper = document.getElementById('clockWrapper');
         function preventBurnIn() {
-            const maxShiftPixels = 6; 
-            const randomX = Math.floor(Math.random() * (maxShiftPixels * 2 + 1)) - maxShiftPixels;
-            const randomY = Math.floor(Math.random() * (maxShiftPixels * 2 + 1)) - maxShiftPixels;
-            
-            document.body.style.transform = `translate(${randomX}px, ${randomY}px)`;
+            const maxX = window.innerWidth * 0.04;
+            const maxY = window.innerHeight * 0.06;
+            const x = Math.round((Math.random() * 2 - 1) * maxX);
+            const y = Math.round((Math.random() * 2 - 1) * maxY);
+            wrapper.style.transform = `translate(${x}px, ${y}px)`;
         }
 
-        // Initialize loops
-        updateClock();
-        setInterval(updateClock, 1000);       // Update values every second
-        setInterval(preventBurnIn, 300000);   // Jitter alignment coordinates every 5 minutes
+        // --- KEEP THE SCREEN AWAKE ---
+        // Only works on HTTPS or localhost; elsewhere the browser ignores it.
+        let wakeLock = null;
+        async function requestWakeLock() {
+            if (!('wakeLock' in navigator)) return;
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+            } catch (e) { /* not allowed here; ignore */ }
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') requestWakeLock();
+        });
+
+        tick();
+        setInterval(preventBurnIn, 60000);
+        requestWakeLock();
     </script>
 </body>
 </html>
