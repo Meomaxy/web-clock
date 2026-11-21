@@ -16,7 +16,7 @@ Add these to the end of the URL. Combine them with `&`.
 | Setting        | Effect                                                       |
 |----------------|--------------------------------------------------------------|
 | `?24h`         | Use 24-hour time (default is 12-hour with AM/PM)             |
-| `?seconds=off` | Hide seconds (the time gets bigger to fill the space)        |
+| `?seconds=off` | Hide the seconds                                             |
 | `?date=off`    | Hide the date                                                |
 | `?theme=NAME`  | Color theme: `red` (default), `cyan`, `amber`, `green`, `white` |
 | `?weather=off` | Hide the temperature                                         |

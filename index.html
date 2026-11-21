@@ -19,7 +19,6 @@
         :root {
             --accent: #ff3b3b;
             --accent-glow: rgba(255, 59, 59, 0.25);
-            --date: #a36a6a;
         }
 
         /* Eliminates scrollbars and sets a deep, low-glare background */
@@ -32,7 +31,7 @@
         }
 
         body {
-            color: var(--date);
+            color: var(--accent);
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             display: flex;
             justify-content: center;
@@ -49,7 +48,7 @@
 
         /* Giant numerical readout */
         .time-display {
-            font-size: 16vw;
+            font-size: 22vw;
             font-weight: 700;
             line-height: 1;
             letter-spacing: -0.03em;
@@ -60,8 +59,12 @@
             white-space: nowrap;
         }
 
-        .no-seconds .time-display {
-            font-size: 22vw;
+        /* Seconds: smaller digits after the minutes, no colon */
+        .seconds-display {
+            font-size: 0.4em;
+            font-weight: 400;
+            margin-left: 0.1em;
+            letter-spacing: 0;
         }
 
         /* Smaller AM/PM indicator next to the numbers */
@@ -102,7 +105,7 @@
 
     <div class="clock-container" id="clockWrapper">
         <div class="time-display">
-            <span id="time">--:--</span><span id="ampm" class="ampm-display"></span>
+            <span id="time">--:--</span><span id="seconds" class="seconds-display"></span><span id="ampm" class="ampm-display"></span>
         </div>
         <div id="date" class="date-display"></div>
         <div id="weather" class="weather-display"></div>
@@ -125,21 +128,20 @@
         };
 
         const themes = {
-            cyan:  { accent: '#66fcf1', glow: 'rgba(102, 252, 241, 0.2)', date: '#7f9aa3' },
-            red:   { accent: '#ff3b3b', glow: 'rgba(255, 59, 59, 0.25)',  date: '#a36a6a' },
-            amber: { accent: '#ffb000', glow: 'rgba(255, 176, 0, 0.2)',   date: '#a38a5a' },
-            green: { accent: '#39ff6a', glow: 'rgba(57, 255, 106, 0.2)',  date: '#6fa37f' },
-            white: { accent: '#f2f2f2', glow: 'rgba(242, 242, 242, 0.15)', date: '#9a9a9a' },
+            cyan:  { accent: '#66fcf1', glow: 'rgba(102, 252, 241, 0.2)' },
+            red:   { accent: '#ff3b3b', glow: 'rgba(255, 59, 59, 0.25)' },
+            amber: { accent: '#ffb000', glow: 'rgba(255, 176, 0, 0.2)' },
+            green: { accent: '#39ff6a', glow: 'rgba(57, 255, 106, 0.2)' },
+            white: { accent: '#f2f2f2', glow: 'rgba(242, 242, 242, 0.15)' },
         };
         const theme = themes[settings.theme] || themes.red;
         const rootStyle = document.documentElement.style;
         rootStyle.setProperty('--accent', theme.accent);
         rootStyle.setProperty('--accent-glow', theme.glow);
-        rootStyle.setProperty('--date', theme.date);
 
-        if (!settings.showSeconds) document.body.classList.add('no-seconds');
 
         const timeEl = document.getElementById('time');
+        const secondsEl = document.getElementById('seconds');
         const ampmEl = document.getElementById('ampm');
         const dateEl = document.getElementById('date');
         if (!settings.showDate) dateEl.style.display = 'none';
@@ -159,9 +161,8 @@
                 hours = hours % 12 || 12;
             }
 
-            timeEl.textContent = settings.showSeconds
-                ? `${hours}:${minutes}:${seconds}`
-                : `${hours}:${minutes}`;
+            timeEl.textContent = `${hours}:${minutes}`;
+            secondsEl.textContent = settings.showSeconds ? seconds : '';
 
             dateEl.textContent = now.toLocaleDateString('en-US',
                 { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
