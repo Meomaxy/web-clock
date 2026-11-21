@@ -34,7 +34,7 @@ http://tower:8043/?24h&seconds=off&date=off&theme=white
 ### Features
 
 - Once a minute the clock slowly drifts to a nearby spot to prevent burn-in.
-- The current temperature and condition appear under the date. They come from
+- The current temperature, condition, and today's chance of precipitation appear under the date. They come from
   [Open-Meteo](https://open-meteo.com/) (free, no API key) and refresh every 10 minutes.
 - The mouse cursor is hidden over the page.
 - The page asks the browser to keep the screen awake. Browsers only allow this

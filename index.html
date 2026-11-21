@@ -72,6 +72,7 @@
             font-size: 0.25em;
             font-weight: 400;
             margin-left: 0.15em;
+            vertical-align: top;   /* superscript: sit at the top of the line */
             letter-spacing: 0;
         }
 
@@ -92,6 +93,10 @@
             margin-top: 1.5vh;
             font-variant-numeric: tabular-nums;
             min-height: 1.2em; /* hold the space so the clock doesn't jump when it loads */
+        }
+
+        .weather-precip {
+            margin-left: 0.6em;
         }
 
         .weather-temp {
@@ -201,11 +206,12 @@
             const url = 'https://api.open-meteo.com/v1/forecast'
                 + `?latitude=${settings.lat}&longitude=${settings.lon}`
                 + '&current=temperature_2m,weather_code'
+                + '&daily=precipitation_probability_max&forecast_days=1&timezone=auto'
                 + `&temperature_unit=${settings.celsius ? 'celsius' : 'fahrenheit'}`;
             try {
                 const res = await fetch(url);
                 if (!res.ok) throw new Error(res.status);
-                const { current } = await res.json();
+                const { current, daily } = await res.json();
                 const temp = Math.round(current.temperature_2m);
                 const unit = settings.celsius ? 'C' : 'F';
 
@@ -214,6 +220,15 @@
                 tempEl.className = 'weather-temp';
                 tempEl.textContent = `${temp}°${unit}`;
                 weatherEl.append(tempEl, describeWeather(current.weather_code));
+
+                // Today's chance of precipitation, at the end of the line
+                const rainChance = daily?.precipitation_probability_max?.[0];
+                if (rainChance != null) {
+                    const rainEl = document.createElement('span');
+                    rainEl.className = 'weather-precip';
+                    rainEl.textContent = `☔ ${Math.round(rainChance)}%`;
+                    weatherEl.append(rainEl);
+                }
                 lastWeatherAt = Date.now();
             } catch (e) {
                 // Keep showing the last reading, but clear it once it's over an hour old
@@ -222,12 +237,12 @@
         }
 
         // --- SCREEN PROTECTOR (ANTI-BURN-IN) ---
-        // Every minute, drift the clock to a new spot within a few percent of
+        // Every minute, drift the clock to a new spot within roughly 10% of
         // the screen so no pixels show the same thing for hours.
         const wrapper = document.getElementById('clockWrapper');
         function preventBurnIn() {
-            const maxX = window.innerWidth * 0.04;
-            const maxY = window.innerHeight * 0.06;
+            const maxX = window.innerWidth * 0.08;
+            const maxY = window.innerHeight * 0.12;
             const x = Math.round((Math.random() * 2 - 1) * maxX);
             const y = Math.round((Math.random() * 2 - 1) * maxY);
             wrapper.style.transform = `translate(${x}px, ${y}px)`;
