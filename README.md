@@ -7,7 +7,7 @@ It's a single file, `index.html`, with no dependencies.
 
 Open the page in a browser and switch to full screen (usually F11).
 
-Deployed at: http://tower:8043/
+Live at: https://meomaxy.github.io/web-clock/
 
 ### URL settings
 
@@ -26,9 +26,9 @@ Add these to the end of the URL. Combine them with `&`.
 Examples:
 
 ```
-http://tower:8043/?24h
-http://tower:8043/?seconds=off&theme=amber
-http://tower:8043/?24h&seconds=off&date=off&theme=white
+https://meomaxy.github.io/web-clock/?24h
+https://meomaxy.github.io/web-clock/?seconds=off&theme=amber
+https://meomaxy.github.io/web-clock/?24h&seconds=off&date=off&theme=white
 ```
 
 ### Features
@@ -41,9 +41,11 @@ http://tower:8043/?24h&seconds=off&date=off&theme=white
   [Open-Meteo](https://open-meteo.com/) (free, no API key) and refresh every 10 minutes.
 - The mouse cursor is hidden over the page.
 - The page asks the browser to keep the screen awake. Browsers only allow this
-  on HTTPS or localhost, so on a plain-HTTP server, set the TV or browser's
-  own power settings to stay on.
+  on HTTPS or localhost, which the GitHub Pages URL satisfies. If the TV's
+  browser doesn't support it, set the TV's own power settings to stay on.
 
 ## Deploying
 
-Copy `index.html` to `\\tower\www\index.html`, then refresh the browser on the TV.
+The page is hosted with GitHub Pages, served from the root of the `main` branch.
+Push to `main` and it redeploys automatically in a minute or so, then refresh the
+browser on the TV.
