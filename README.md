@@ -19,7 +19,7 @@ Add these to the end of the URL. Combine them with `&`.
 | `?seconds=off` | Hide the seconds                                             |
 | `?date=off`    | Hide the date                                                |
 | `?theme=NAME`  | Color theme: `red` (default), `cyan`, `amber`, `green`, `white` |
-| `?weather=off` | Hide the temperature                                         |
+| `?weather=off` | Hide the weather line (temperature, condition, precipitation) |
 | `?units=c`     | Show temperature in Celsius (default is Fahrenheit)          |
 | `?lat=..&lon=..` | Weather location (default is Teaneck, NJ 07666)            |
 
@@ -33,7 +33,10 @@ http://tower:8043/?24h&seconds=off&date=off&theme=white
 
 ### Features
 
-- Once a minute the clock slowly drifts to a nearby spot to prevent burn-in.
+- The time is shown large, with the seconds as small digits after it (no colon)
+  and a small superscript AM/PM. The date and weather use the same color as the time.
+- Once a minute the clock slowly drifts to a new spot (up to about 8% of the screen
+  width and 12% of the height) to prevent burn-in.
 - The current temperature, condition, and today's chance of precipitation appear under the date. They come from
   [Open-Meteo](https://open-meteo.com/) (free, no API key) and refresh every 10 minutes.
 - The mouse cursor is hidden over the page.
