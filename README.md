@@ -14,8 +14,9 @@ Live at: https://meomaxy.github.io/web-clock/
 
 Instead of typing the URL by hand, open [`configure.html`](https://meomaxy.github.io/web-clock/configure.html).
 It has a toggle for each on/off setting, a color picker, a units choice, and a
-location lookup by city or ZIP code (using Open-Meteo's geocoding). It shows a
-live preview and a link that opens the clock with your choices. Copy that link
+location lookup by city or ZIP code (using Open-Meteo's geocoding). A toggle sets
+the time zone from the weather location, or you can pick a zone by name. It shows
+a live preview and a link that opens the clock with your choices. Copy that link
 into the TV's browser.
 
 ### URL settings
@@ -31,6 +32,7 @@ Add these to the end of the URL. Combine them with `&`.
 | `?weather=off` | Hide the weather line (temperature, condition, precipitation) |
 | `?units=c`     | Show temperature in Celsius (default is Fahrenheit)          |
 | `?lat=..&lon=..` | Weather location (default is Teaneck, NJ 07666)            |
+| `?tz=ZONE`     | Show another time zone, e.g. `America/Chicago` (default is the device's own) |
 
 Examples:
 
@@ -38,10 +40,13 @@ Examples:
 https://meomaxy.github.io/web-clock/?24h
 https://meomaxy.github.io/web-clock/?seconds=off&theme=amber
 https://meomaxy.github.io/web-clock/?24h&seconds=off&date=off&theme=white
+https://meomaxy.github.io/web-clock/?tz=Europe/London
 ```
 
 ### Features
 
+- The clock shows the device's own time zone unless `?tz=` names another one. The
+  date follows the same zone, and the weather location doesn't affect the time.
 - The time is shown large, with the seconds as small digits after it (no colon)
   and a small superscript AM/PM. The date and weather use the same color as the time.
 - Once a minute the clock slowly drifts to a new spot (up to about 8% of the screen

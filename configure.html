@@ -8,7 +8,9 @@
         Builds the URL for the clock page (index.html). Only settings that differ
         from the clock's defaults are added to the URL. Opening this page with a
         clock URL's query string (configure.html?theme=amber&24h) pre-fills the controls.
-        Location lookup uses the Open-Meteo geocoding API (free, no API key).
+        Location lookup uses the Open-Meteo geocoding API (free, no API key), which
+        also gives each place's time zone. A location typed in as lat/lon has its
+        time zone looked up from the Open-Meteo forecast API.
     -->
     <style>
         :root {
@@ -107,6 +109,10 @@
         .choice input:disabled + span { opacity: 0.4; cursor: not-allowed; }
         .dot { width: 14px; height: 14px; border-radius: 50%; }
 
+        #tz { flex: 0 1 240px; }
+        .row.off { opacity: 0.4; }
+        .error { color: #ff8a8a; }
+
         /* Location lookup */
         .location { padding: 14px 0; border-bottom: 1px solid var(--line); }
         .location:last-child { border-bottom: 0; }
@@ -150,15 +156,26 @@
             background: var(--accent);
             border-color: var(--accent);
             color: #0b0c10;
-            margin-bottom: 14px;
         }
         .go:hover { filter: brightness(1.1); }
         .url { display: flex; gap: 8px; margin-bottom: 20px; }
         .url input { font-family: Consolas, monospace; font-size: 0.85rem; }
 
         h2 { font-size: 1rem; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
+
+        /* The preview and the open button stay at the top while the settings scroll beneath them */
+        .sticky-preview {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--bg);
+            padding: 8px 0 14px;
+        }
         .preview {
-            width: 100%;
+            display: block;
+            /* Cap the height so the settings stay usable on short screens */
+            width: min(100%, calc(28vh * 16 / 9));
+            margin: 0 auto 10px;
             aspect-ratio: 16 / 9;
             border: 1px solid var(--line);
             border-radius: 12px;
@@ -174,8 +191,19 @@
 <body>
 <main>
     <h1>Clock Settings</h1>
-    <p class="lede">Choose how the clock looks, then open it with the link below.</p>
+    <p class="lede">Choose how the clock looks below, then open it with the link under the preview.</p>
 
+    <div class="sticky-preview">
+        <iframe class="preview" id="preview" title="Clock preview"></iframe>
+        <a class="btn go" id="go" href="index.html">Open the clock &rarr;</a>
+    </div>
+
+    <div class="url">
+        <input type="text" id="url" readonly aria-label="Clock URL">
+        <button type="button" id="copy">Copy</button>
+    </div>
+
+    <h2>Settings</h2>
     <section class="panel" aria-label="Display">
         <div class="row">
             <label for="h24"><span class="label">24-hour time</span><span class="hint">Off shows 12-hour time with AM/PM</span></label>
@@ -192,6 +220,15 @@
         <div class="row">
             <span class="label" id="theme-label">Color</span>
             <div class="choices" role="radiogroup" aria-labelledby="theme-label" id="themes"></div>
+        </div>
+        <div class="row">
+            <label for="tzloc"><span class="label">Use the weather location's time zone</span><span class="hint" id="tz-hint"></span></label>
+            <input class="switch" type="checkbox" role="switch" id="tzloc">
+        </div>
+        <div class="row" id="tz-row">
+            <label for="tz"><span class="label">Time zone</span><span class="hint">Leave blank to use the clock device's own time zone</span><span class="hint error" id="tz-error" role="alert"></span></label>
+            <input type="text" id="tz" list="tzlist" placeholder="e.g. America/Chicago" autocomplete="off" spellcheck="false">
+            <datalist id="tzlist"></datalist>
         </div>
     </section>
 
@@ -219,15 +256,6 @@
             <button type="button" id="reset-loc">Use the default location</button>
         </div>
     </section>
-
-    <a class="btn go" id="go" href="index.html">Open the clock &rarr;</a>
-    <div class="url">
-        <input type="text" id="url" readonly aria-label="Clock URL">
-        <button type="button" id="copy">Copy</button>
-    </div>
-
-    <h2>Preview</h2>
-    <iframe class="preview" id="preview" title="Clock preview"></iframe>
 </main>
 
 <script>
@@ -235,11 +263,13 @@
     const THEMES = {
         red: '#ff3b3b', cyan: '#66fcf1', amber: '#ffb000', green: '#39ff6a', white: '#f2f2f2',
     };
-    const DEFAULT_LOC = { lat: 40.8976, lon: -74.0160, name: 'Teaneck, NJ 07666' };
+    const DEFAULT_LOC = { lat: 40.8976, lon: -74.0160, name: 'Teaneck, NJ 07666', tz: 'America/New_York' };
 
     const state = {
         h24: false, seconds: true, date: true, weather: true,
         theme: 'red', celsius: false, loc: { ...DEFAULT_LOC },
+        tzFromLoc: false,   // use the weather location's time zone
+        tzCustom: '',       // otherwise, a time zone typed in ('' = the device's own)
     };
 
     // --- Start from the query string, if there is one ---
@@ -253,6 +283,7 @@
         const theme = (p.get('theme') || '').toLowerCase();
         if (THEMES[theme]) state.theme = theme;
         state.celsius = (p.get('units') || '').toLowerCase().startsWith('c');
+        state.tzCustom = (p.get('tz') || '').trim();
         const lat = parseFloat(p.get('lat')), lon = parseFloat(p.get('lon'));
         if (isFinite(lat) && isFinite(lon)) {
             state.loc = { lat, lon, name: 'Custom location' };
@@ -262,6 +293,38 @@
     const $ = (id) => document.getElementById(id);
     const isDefaultLoc = () =>
         Math.abs(state.loc.lat - DEFAULT_LOC.lat) < 1e-4 && Math.abs(state.loc.lon - DEFAULT_LOC.lon) < 1e-4;
+    if (isDefaultLoc()) state.loc = { ...DEFAULT_LOC };   // a URL naming the default spot keeps its known zone
+
+    // --- Time zone ---
+    function validTz(name) {
+        if (!name) return false;
+        try { new Intl.DateTimeFormat('en-US', { timeZone: name }); return true; }
+        catch (e) { return false; }
+    }
+    const usingLocTz = () => state.weather && state.tzFromLoc;
+    // The zone that goes in the URL, or null for the device's own
+    function effectiveTz() {
+        if (usingLocTz()) return state.loc.tz || null;
+        return validTz(state.tzCustom) ? state.tzCustom : null;
+    }
+
+    // Time zone of a lat/lon the geocoder didn't supply (e.g. from a URL), via the forecast API
+    async function lookupLocTz() {
+        const loc = state.loc;
+        loc.tzPending = true;
+        try {
+            const res = await fetch('https://api.open-meteo.com/v1/forecast?current=temperature_2m&timezone=auto'
+                + `&latitude=${loc.lat}&longitude=${loc.lon}`);
+            if (!res.ok) throw new Error(res.status);
+            const { timezone } = await res.json();
+            if (!timezone) throw new Error('no time zone');
+            loc.tz = timezone;
+        } catch (e) {
+            loc.tzFailed = true;
+        }
+        loc.tzPending = false;
+        if (state.loc === loc) render();   // skip if a different place was chosen meanwhile
+    }
 
     // --- Build the clock URL, adding only what differs from the defaults ---
     function clockUrl() {
@@ -269,6 +332,7 @@
         if (state.h24) parts.push('24h');
         if (!state.seconds) parts.push('seconds=off');
         if (!state.date) parts.push('date=off');
+        if (effectiveTz()) parts.push('tz=' + effectiveTz());
         if (state.theme !== 'red') parts.push('theme=' + state.theme);
         if (!state.weather) {
             parts.push('weather=off');
@@ -299,6 +363,15 @@
     for (const key of ['h24', 'seconds', 'date', 'weather']) {
         $(key).addEventListener('change', (e) => { state[key] = e.target.checked; render(); });
     }
+    $('tzloc').addEventListener('change', (e) => { state.tzFromLoc = e.target.checked; render(); });
+    $('tz').addEventListener('input', (e) => { state.tzCustom = e.target.value.trim(); render(); });
+    $('tz').value = state.tzCustom;
+    try {
+        const zones = Intl.supportedValuesOf('timeZone');
+        if (!zones.includes('UTC')) zones.push('UTC');
+        for (const z of zones) $('tzlist').append(new Option(z));
+    } catch (e) { /* older browsers: the box still accepts any zone name */ }
+
     document.addEventListener('change', (e) => {
         if (e.target.name === 'theme') { state.theme = e.target.value; render(); }
         if (e.target.name === 'units') { state.celsius = e.target.value === 'c'; render(); }
@@ -312,19 +385,28 @@
         return [r.name, r.admin1, r.country].filter(Boolean).join(', ');
     }
 
-    $('search-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const q = $('query').value.trim();
+    function clearResults() {
         resultsEl.textContent = '';
-        if (q.length < 2) { statusEl.textContent = 'Type at least 2 characters.'; return; }
+        statusEl.textContent = '';
+    }
+
+    // Look up places matching q. A newer call (or a pick) makes older ones stale.
+    async function searchPlaces(q, { explicit = false } = {}) {
         const id = ++searchId;
-        statusEl.textContent = 'Searching…';
+        if (q.length < 2) {
+            // While typing, stay quiet; after pressing Search/Enter, say why nothing happened
+            clearResults();
+            if (explicit) statusEl.textContent = 'Type at least 2 characters.';
+            return;
+        }
+        statusEl.textContent = 'Searching…';   // keep the old results until the new ones arrive
         try {
             const res = await fetch('https://geocoding-api.open-meteo.com/v1/search?count=6&language=en&format=json&name='
                 + encodeURIComponent(q));
             if (!res.ok) throw new Error(res.status);
             const { results = [] } = await res.json();
             if (id !== searchId) return;   // a newer search replaced this one
+            resultsEl.textContent = '';
             statusEl.textContent = results.length ? 'Choose a place:' : 'No places found.';
             for (const r of results) {
                 const li = document.createElement('li');
@@ -337,9 +419,10 @@
                     b.append(s);
                 }
                 b.addEventListener('click', () => {
-                    state.loc = { lat: r.latitude, lon: r.longitude, name: placeName(r) };
-                    resultsEl.textContent = '';
-                    statusEl.textContent = '';
+                    ++searchId;                    // ignore any search still in flight
+                    clearTimeout(typingTimer);
+                    state.loc = { lat: r.latitude, lon: r.longitude, name: placeName(r), tz: r.timezone };
+                    clearResults();
                     $('query').value = '';
                     render();
                 });
@@ -349,6 +432,28 @@
         } catch (err) {
             if (id === searchId) statusEl.textContent = 'The lookup failed. Check your connection and try again.';
         }
+    }
+
+    // Search as you type, a moment after the last keystroke
+    let typingTimer;
+    $('query').addEventListener('input', (e) => {
+        clearTimeout(typingTimer);
+        const q = e.target.value.trim();
+        // All digits looks like a ZIP code, so wait for all 5 before searching
+        const waitingForZip = /^\d+$/.test(q) && q.length < 5;
+        if (q.length < 2 || waitingForZip) {   // nothing worth searching yet: drop old results quietly
+            ++searchId;
+            clearResults();
+            return;
+        }
+        typingTimer = setTimeout(() => searchPlaces(q), 300);
+    });
+
+    // Enter or the Search button searches right away
+    $('search-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        clearTimeout(typingTimer);
+        searchPlaces($('query').value.trim(), { explicit: true });
     });
 
     $('reset-loc').addEventListener('click', () => {
@@ -383,6 +488,21 @@
         $('loc-name').textContent = isDefaultLoc() ? DEFAULT_LOC.name + ' (default)' : state.loc.name;
         $('loc-coords').textContent = `${state.loc.lat.toFixed(4)}, ${state.loc.lon.toFixed(4)}`;
         $('reset-loc').hidden = isDefaultLoc();
+
+        // Time zone controls
+        const useLoc = usingLocTz();
+        $('tzloc').checked = useLoc;
+        $('tzloc').disabled = !state.weather;
+        $('tz').disabled = useLoc;
+        $('tz-row').classList.toggle('off', useLoc);
+        const loc = state.loc;
+        if (!state.weather) $('tz-hint').textContent = 'Turn on the weather to use its location';
+        else if (loc.tz) $('tz-hint').textContent = `${loc.name}: ${loc.tz}`;
+        else if (loc.tzFailed) $('tz-hint').textContent = "Couldn't look up this location's time zone";
+        else $('tz-hint').textContent = useLoc ? 'Looking up…' : 'Uses the location chosen under Weather';
+        $('tz-error').textContent = !useLoc && state.tzCustom && !validTz(state.tzCustom)
+            ? 'Not a recognized time zone, so the device time zone is used' : '';
+        if (useLoc && !loc.tz && !loc.tzFailed && !loc.tzPending) lookupLocTz();
 
         document.documentElement.style.setProperty('--accent', THEMES[state.theme]);
 

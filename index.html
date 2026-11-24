@@ -11,6 +11,7 @@
           ?date=off            hide the date
           ?theme=red           red (default), cyan, amber, green, white
           ?weather=off         hide the weather line
+          ?tz=America/Chicago  show another time zone (default: the device's own)
           ?units=c             Celsius (default is Fahrenheit)
           ?lat=40.9&lon=-74.0  weather location (default: Teaneck, NJ 07666)
         Example: https://meomaxy.github.io/web-clock/?24h&seconds=off&theme=amber
@@ -130,7 +131,21 @@
             lat: parseFloat(params.get('lat')) || 40.8976,
             lon: parseFloat(params.get('lon')) || -74.0160,
             celsius: (params.get('units') || '').toLowerCase().startsWith('c'),
+            tz: (params.get('tz') || '').trim(),
         };
+
+        // Time zone: the device's own, unless ?tz= names a valid IANA zone.
+        // Left undefined for local time, so that case needs no Intl support.
+        let timeZone;
+        if (settings.tz) {
+            try {
+                new Intl.DateTimeFormat('en-US', { timeZone: settings.tz });
+                timeZone = settings.tz;
+            } catch (e) { /* unknown zone: fall back to local time */ }
+        }
+        const clockFormat = timeZone && new Intl.DateTimeFormat('en-US', {
+            timeZone, hourCycle: 'h23', hour: 'numeric', minute: 'numeric', second: 'numeric',
+        });
 
         const themes = {
             cyan:  { accent: '#66fcf1', glow: 'rgba(102, 252, 241, 0.2)' },
@@ -152,11 +167,19 @@
         if (!settings.showDate) dateEl.style.display = 'none';
 
         // --- CLOCK ---
+        // Hours, minutes and seconds in the chosen time zone
+        function clockParts(now) {
+            if (!clockFormat) return { h: now.getHours(), m: now.getMinutes(), s: now.getSeconds() };
+            const p = {};
+            for (const part of clockFormat.formatToParts(now)) p[part.type] = parseInt(part.value, 10);
+            return { h: p.hour % 24, m: p.minute, s: p.second };
+        }
+
         function updateClock() {
             const now = new Date();
-            let hours = now.getHours();
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
+            let { h: hours, m, s } = clockParts(now);
+            const minutes = String(m).padStart(2, '0');
+            const seconds = String(s).padStart(2, '0');
 
             if (settings.use24h) {
                 hours = String(hours).padStart(2, '0');
@@ -170,7 +193,7 @@
             secondsEl.textContent = settings.showSeconds ? seconds : '';
 
             dateEl.textContent = now.toLocaleDateString('en-US',
-                { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+                { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone });
         }
 
         // Schedule each update just after the next second starts, so the
