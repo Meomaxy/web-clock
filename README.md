@@ -53,7 +53,9 @@ https://meomaxy.github.io/web-clock/?tz=Europe/London
   width and 12% of the height) to prevent burn-in.
 - The current temperature, condition, and today's chance of precipitation appear under the date. They come from
   [Open-Meteo](https://open-meteo.com/) (free, no API key) and refresh every 10 minutes.
-- The mouse cursor is hidden over the page.
+- The mouse cursor is hidden over the page. Clicking or tapping the page shows a
+  Settings button that opens the settings page with the current settings filled in.
+  It goes away after 10 seconds, or when you click anywhere else.
 - The page asks the browser to keep the screen awake. Browsers only allow this
   on HTTPS or localhost, which the GitHub Pages URL satisfies. If the TV's
   browser doesn't support it, set the TV's own power settings to stay on.

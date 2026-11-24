@@ -105,6 +105,32 @@
             font-weight: 400;
             margin-right: 0.6em;
         }
+
+        /* Settings button: shown for a few seconds after the page is clicked */
+        .settings-link {
+            position: fixed;
+            right: 3vw;
+            bottom: 4vh;
+            padding: 0.5em 1.1em;
+            font-size: 2vw;
+            color: var(--accent);
+            background: rgba(11, 12, 16, 0.9);
+            border: 2px solid var(--accent);
+            border-radius: 0.4em;
+            text-decoration: none;
+            cursor: pointer;
+            opacity: 0;
+            visibility: hidden;   /* also keeps it unclickable and unfocusable while hidden */
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .settings-link.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        /* Show the mouse pointer while the button is up */
+        body.menu-open {
+            cursor: default;
+        }
     </style>
 </head>
 <body>
@@ -116,6 +142,8 @@
         <div id="date" class="date-display"></div>
         <div id="weather" class="weather-display"></div>
     </div>
+
+    <a id="settingsLink" class="settings-link" href="configure.html">Settings</a>
 
     <script>
         // --- SETTINGS FROM URL ---
@@ -270,6 +298,23 @@
             const y = Math.round((Math.random() * 2 - 1) * maxY);
             wrapper.style.transform = `translate(${x}px, ${y}px)`;
         }
+
+        // --- SETTINGS BUTTON ---
+        // A click shows a button to the settings page; another click elsewhere, or
+        // 10 seconds, hides it. The link carries the current settings along.
+        const settingsLink = document.getElementById('settingsLink');
+        settingsLink.href = 'configure.html' + location.search;
+        let settingsTimer;
+        function showSettingsLink(show) {
+            clearTimeout(settingsTimer);
+            settingsLink.classList.toggle('visible', show);
+            document.body.classList.toggle('menu-open', show);
+            if (show) settingsTimer = setTimeout(() => showSettingsLink(false), 10000);
+        }
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('#settingsLink')) return;   // let the link do its job
+            showSettingsLink(!settingsLink.classList.contains('visible'));
+        });
 
         // --- KEEP THE SCREEN AWAKE ---
         // Only works on HTTPS or localhost; elsewhere the browser ignores it.
