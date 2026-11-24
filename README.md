@@ -1,13 +1,22 @@
 # web-clock
 A simple web page clock, made to run full screen in a browser on a TV.
 
-It's a single file, `index.html`, with no dependencies.
+The clock is a single file, `index.html`, with no dependencies. A second file,
+`configure.html`, is a settings page for building the clock's URL.
 
 ## Usage
 
 Open the page in a browser and switch to full screen (usually F11).
 
 Live at: https://meomaxy.github.io/web-clock/
+
+### Settings page
+
+Instead of typing the URL by hand, open [`configure.html`](https://meomaxy.github.io/web-clock/configure.html).
+It has a toggle for each on/off setting, a color picker, a units choice, and a
+location lookup by city or ZIP code (using Open-Meteo's geocoding). It shows a
+live preview and a link that opens the clock with your choices. Copy that link
+into the TV's browser.
 
 ### URL settings
 
